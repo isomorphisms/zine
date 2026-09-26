@@ -81,6 +81,20 @@ void ANativeActivity_onCreate(ANativeActivity *activity, void *saved, size_t sav
     jclass scroll_class = (*env)->FindClass(env, "android/widget/ScrollView");
     jclass activity_class = (*env)->GetObjectClass(env, activity->clazz);
     if (jni_failed(env) || !text_class || !scroll_class) goto done;
+    /* NativeActivity defaults to an application-owned drawing surface and
+     * input queue. This app uses framework widgets, so return both to Android.
+     * Otherwise accessibility sees text while the native surface stays black. */
+    jmethodID get_window = (*env)->GetMethodID(env, activity_class, "getWindow", "()Landroid/view/Window;");
+    if (jni_failed(env)) goto done;
+    jobject window = (*env)->CallObjectMethod(env, activity->clazz, get_window);
+    if (jni_failed(env) || !window) goto done;
+    jclass window_class = (*env)->GetObjectClass(env, window);
+    jmethodID take_surface = (*env)->GetMethodID(env, window_class, "takeSurface", "(Landroid/view/SurfaceHolder$Callback2;)V");
+    jmethodID take_input = (*env)->GetMethodID(env, window_class, "takeInputQueue", "(Landroid/view/InputQueue$Callback;)V");
+    if (jni_failed(env)) goto done;
+    (*env)->CallVoidMethod(env, window, take_surface, NULL);
+    (*env)->CallVoidMethod(env, window, take_input, NULL);
+    if (jni_failed(env)) goto done;
     jmethodID text_constructor = (*env)->GetMethodID(env, text_class, "<init>", "(Landroid/content/Context;)V");
     jmethodID scroll_constructor = (*env)->GetMethodID(env, scroll_class, "<init>", "(Landroid/content/Context;)V");
     if (jni_failed(env)) goto done;
