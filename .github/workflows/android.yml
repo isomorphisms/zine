@@ -1,7 +1,5 @@
 name: First poem APK
 on:
-  push:
-    branches: [first-reader-apk]
   pull_request:
 permissions:
   contents: read
@@ -31,4 +29,36 @@ jobs:
         with:
           name: zine-apks-${{ github.event.pull_request.head.sha || github.sha }}
           path: android/build/zine-*.apk*
+          if-no-files-found: error
+      # This action owns the emulator shell interface; commands below are only
+      # its install/launch acceptance boundary, not a consumer shell program.
+      - name: Install twice and display the poem after restart
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 29
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: |
+            adb install -r android/build/zine-x86_64.apk
+            adb install -r android/build/zine-x86_64.apk
+            adb shell am start -W -n org.walnutburgundy.zine/android.app.NativeActivity
+            adb shell uiautomator dump /sdcard/zine.xml
+            adb pull /sdcard/zine.xml android/build/first-launch.xml
+            grep -F 'Nothing Gold Can Stay' android/build/first-launch.xml
+            grep -F 'Nothing gold can stay.' android/build/first-launch.xml
+            adb shell am force-stop org.walnutburgundy.zine
+            adb shell am start -W -n org.walnutburgundy.zine/android.app.NativeActivity
+            adb shell uiautomator dump /sdcard/zine.xml
+            adb pull /sdcard/zine.xml android/build/restarted.xml
+            grep -F 'Nothing Gold Can Stay' android/build/restarted.xml
+            adb shell screencap -p /sdcard/zine.png
+            adb pull /sdcard/zine.png android/build/first-poem.png
+      - name: Retain emulator evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: zine-emulator-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            android/build/*.xml
+            android/build/*.png
           if-no-files-found: error

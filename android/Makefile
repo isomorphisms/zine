@@ -35,6 +35,8 @@ $(apk): $(stage)/unsigned.apk
 	$(tools)/zipalign -f -P 16 4 $< $(stage)/aligned.apk
 	$(tools)/apksigner sign --ks $(signer) --ks-key-alias wegert-debug --ks-pass pass:wegert-debug --key-pass pass:wegert-debug --out $@ $(stage)/aligned.apk
 	$(tools)/apksigner verify --verbose --print-certs $@
+	$(tools)/apksigner verify --print-certs $@ > $@.signer.txt
+	grep -Fx 'Signer #1 certificate SHA-256 digest: de9b1d47c5a65e6d46a204b79dd9ee566b9d3c9832ba81ebc4213d3392e92ff9' $@.signer.txt
 	sha256sum $@ > $@.sha256
 
 verify: $(apk)
